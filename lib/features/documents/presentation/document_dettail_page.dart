@@ -1,13 +1,11 @@
-import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'main.dart';
-import 'widgets/document_chat_widget.dart'; // Importa il widget della chat isolato
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../../../main.dart';
+import '../../../core/constants/api_constants.dart';
+import '../data/document_detail_service.dart';
+import '../../../../shared/widgets/document_chat_widget.dart';
 
 class DocumentDetailPage extends StatefulWidget {
   final Map<String, dynamic> documento;
@@ -19,12 +17,12 @@ class DocumentDetailPage extends StatefulWidget {
 }
 
 class _DocumentDetailPageState extends State<DocumentDetailPage> {
+  final DocumentDetailService _detailService = DocumentDetailService();
+
   bool _isLoading = true;
   String? _localFilePath;
   String _fileContentText = '';
   bool _isTextFile = false;
-
-  static const String _baseUrl = 'http://10.0.2.2:8000/api';
   String? _authToken;
 
   @override
@@ -37,11 +35,14 @@ class _DocumentDetailPageState extends State<DocumentDetailPage> {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token');
 
+    if (!mounted) return;
     setState(() {
       _authToken = token;
     });
 
-    await _scaricaEPreparaFile();
+    if (token != null) {
+      await _scaricaEPreparaFile(token);
+    }
   }
 
   Future<void> _forzaLogout() async {
@@ -53,91 +54,35 @@ class _DocumentDetailPageState extends State<DocumentDetailPage> {
     }
   }
 
-  Future<void> _scaricaEPreparaFile() async {
-    final token = _authToken;
+  Future<void> _scaricaEPreparaFile(String token) async {
     final docId = widget.documento['id'];
     final originalName = widget.documento['original_filename'] ?? 'documento.pdf';
 
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/documents/$docId'),
-        headers: {
-          'Authorization': 'Bearer $token',
-        },
-      );
+    final result = await _detailService.scaricaDocumento(docId, originalName, token);
 
-      if (!mounted) return;
+    if (!mounted) return;
 
-      if (response.statusCode == 401) {
-        await _forzaLogout();
-        return;
-      }
-
-      if (response.statusCode == 200) {
-        if (originalName.endsWith('.txt') || originalName.endsWith('.json') || originalName.endsWith('.md')) {
-          setState(() {
-            _fileContentText = response.body;
-            _isTextFile = true;
-            _isLoading = false;
-          });
-        } else {
-          final tempDir = await getTemporaryDirectory();
-          final cleanName = originalName.replaceAll(RegExp(r'[^\w\.\-]'), '_');
-          final file = File('${tempDir.path}/$cleanName');
-          await file.writeAsBytes(response.bodyBytes);
-
-          setState(() {
-            _localFilePath = file.path;
-            _isTextFile = false;
-            _isLoading = false;
-          });
-        }
-      } else {
-        setState(() {
-          _fileContentText = 'Errore nel recupero del file dal server.';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _fileContentText = 'Errore di rete: $e';
-        _isLoading = false;
-      });
+    if (result['unauthorized'] == true) {
+      await _forzaLogout();
+      return;
     }
+
+    setState(() {
+      _isTextFile = result['isText'] ?? false;
+      if (_isTextFile) {
+        _fileContentText = result['textContent'] ?? '';
+      } else {
+        _localFilePath = result['localPath'];
+      }
+      _isLoading = false;
+    });
   }
 
   Future<void> _mostraQrCondivisione() async {
-    final token = _authToken;
+    if (_authToken == null) return;
     final docId = widget.documento['id'];
 
-    String shareUrl = 'http://10.0.2.2:8000/api/documents/share/$docId';
-
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/documents/$docId/generate-qr'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 4));
-
-      if (response.statusCode == 401) {
-        await _forzaLogout();
-        return;
-      }
-
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        String? apiSignedUrl = decoded['share_url'] ?? decoded['url'] ?? decoded['signed_url'];
-        
-        if (apiSignedUrl != null) {
-          shareUrl = apiSignedUrl.replaceAll('127.0.0.1', '10.0.2.2').replaceAll('localhost', '10.0.2.2');
-        }
-      }
-    } catch (e) {
-      print('Fallback QR attivato per timeout/errore di rete: $e');
-    }
+    final shareUrl = await _detailService.generaUrlQr(docId, _authToken!);
 
     if (!mounted) return;
     _apriDialogQr(shareUrl);
@@ -247,7 +192,6 @@ class _DocumentDetailPageState extends State<DocumentDetailPage> {
         ),
         body: Column(
           children: [
-            // HEADER DOCUMENTO CON PULSANTE QR INTEGRATO
             Container(
               width: double.infinity,
               margin: const EdgeInsets.all(16),
@@ -297,8 +241,6 @@ class _DocumentDetailPageState extends State<DocumentDetailPage> {
                 ],
               ),
             ),
-
-            // VISUALIZZATORE DOCUMENTO INTEGRATO (PDF o TESTO)
             Expanded(
               flex: 5,
               child: Container(
@@ -329,12 +271,8 @@ class _DocumentDetailPageState extends State<DocumentDetailPage> {
                                   swipeHorizontal: false,
                                   autoSpacing: true,
                                   pageSnap: true,
-                                  onError: (error) {
-                                    print('Errore rendering PDF: $error');
-                                  },
-                                  onPageError: (page, error) {
-                                    print('Errore pagina $page: $error');
-                                  },
+                                  onError: (error) => print('Errore rendering PDF: $error'),
+                                  onPageError: (page, error) => print('Errore pagina $page: $error'),
                                 )
                               : const Center(
                                   child: Text('Impossibile caricare il file.', style: TextStyle(color: Colors.white54)),
@@ -342,10 +280,7 @@ class _DocumentDetailPageState extends State<DocumentDetailPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // SEZIONE CHAT IA INTEGRATA CON IL WIDGET DEDICATO
             Expanded(
               flex: 4,
               child: Container(
@@ -360,7 +295,7 @@ class _DocumentDetailPageState extends State<DocumentDetailPage> {
                     ? const Center(child: CircularProgressIndicator(color: Color(0xFF38E54D)))
                     : DocumentChatWidget(
                         documentId: docId,
-                        baseUrl: _baseUrl,
+                        baseUrl: ApiConstants.baseUrl,
                         token: _authToken!,
                       ),
               ),

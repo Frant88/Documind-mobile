@@ -1,10 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'main.dart';
+import '../../../../main.dart';
+import '../../../../shared/widgets/app_drawer.dart';
+import '../data/document_service.dart';
 import 'document_detail_page.dart';
-import 'widgets/app_drawer.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,12 +13,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  final DocumentService _documentService = DocumentService();
+  
   String _nomeUtente = 'Utente';
   List<dynamic> _documenti = [];
   bool _isLoadingDocs = true;
   bool _isLoggingOut = false;
-
-  static const String _baseUrl = 'http://10.0.2.2:8000/api';
 
   @override
   void initState() {
@@ -36,7 +35,7 @@ class _HomePageState extends State<HomePage> {
     await _fetchDocumenti();
   }
 
-  Future<void> _forzaLogout() async {
+  Future<void> _forzaLogoutLocalmente() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
     await prefs.remove('user_name');
@@ -46,67 +45,26 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _fetchDocumenti() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+    final result = await _documentService.fetchDocumenti();
 
-    try {
-      final response = await http.get(
-        Uri.parse('$_baseUrl/documents'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+    if (!mounted) return;
 
-      if (!mounted) return;
-
-      if (response.statusCode == 401) {
-        await _forzaLogout();
-        return;
-      }
-
-      if (response.statusCode == 200) {
-        final decodedData = jsonDecode(response.body);
-        List<dynamic> lista = [];
-        if (decodedData is Map && decodedData['data'] is List) {
-          lista = decodedData['data'];
-        } else if (decodedData is List) {
-          lista = decodedData;
-        }
-
-        setState(() {
-          _documenti = lista;
-          _isLoadingDocs = false;
-        });
-      } else {
-        setState(() => _isLoadingDocs = false);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      print('Errore caricamento documenti: $e');
-      setState(() => _isLoadingDocs = false);
+    if (result['unauthorized'] == true) {
+      await _forzaLogoutLocalmente();
+      return;
     }
+
+    setState(() {
+      _documenti = result['data'];
+      _isLoadingDocs = false;
+    });
   }
 
-  Future<void> _eseguiLogoutApi() async {
+  Future<void> _eseguiLogout() async {
     setState(() => _isLoggingOut = true);
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-
-    try {
-      await http.post(
-        Uri.parse('$_baseUrl/logout'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-    } catch (e) {
-      print('Errore logout: $e');
-    } finally {
-      await _forzaLogout();
+    await _documentService.eseguiLogoutApi();
+    if (mounted) {
+      authNotifier.value = false;
     }
   }
 
@@ -153,14 +111,11 @@ class _HomePageState extends State<HomePage> {
                 : IconButton(
                     icon: const Icon(Icons.power_settings_new, color: Color(0xFFFF6B6B), size: 22),
                     tooltip: 'Esci',
-                    onPressed: _eseguiLogoutApi,
+                    onPressed: _eseguiLogout,
                   ),
           ],
         ),
-
-        // MENU LATERALE RICHIAMATO DAL COMPONENTE
         drawer: const AppDrawer(currentPage: 'home'),
-
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -204,10 +159,10 @@ class _HomePageState extends State<HomePage> {
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
+                            children: const [
                               Icon(Icons.folder_open_outlined, size: 56, color: Colors.white24),
-                              const SizedBox(height: 12),
-                              const Text(
+                              SizedBox(height: 12),
+                              Text(
                                 'Nessun file trovato nell\'archivio.',
                                 style: TextStyle(fontSize: 14, color: Colors.white54),
                               ),
@@ -219,7 +174,6 @@ class _HomePageState extends State<HomePage> {
                           itemCount: _documenti.length,
                           itemBuilder: (context, index) {
                             final doc = _documenti[index];
-                            
                             final String titoloDoc = doc['title'] ?? doc['original_filename'] ?? 'Documento';
                             final String sottotitoloDoc = doc['original_filename'] ?? '';
 

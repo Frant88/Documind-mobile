@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../qr_scanner_page.dart';
+import '../../features/qr_scanner/presentation/qr_scanner_page.dart';
 
 class AppDrawer extends StatelessWidget {
   final String currentPage; // Identifica la pagina corrente: 'home', 'qr_scanner', etc.

@@ -1,8 +1,6 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'main.dart'; // Per accedere a authNotifier
+import '../../../../main.dart'; // Per accedere a authNotifier
+import '../data/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -14,10 +12,8 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final AuthService _authService = AuthService();
   bool _isLoading = false;
-
-  // URL per Laravel (Usa 10.0.2.2 per l'emulatore Android)
-  static const String _apiUrl = 'http://10.0.2.2:8000/api/login';
 
   @override
   void dispose() {
@@ -37,51 +33,16 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
 
-    try {
-      final response = await http.post(
-        Uri.parse(_apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'email': email,
-          'password': password,
-        }),
-      );
+    final result = await _authService.login(email, password);
 
-      final Map<String, dynamic> data = jsonDecode(response.body);
+    if (!mounted) return;
 
-      // Laravel restituisce 'token' e l'oggetto 'user'
-      if (response.statusCode == 200 && data['token'] != null) {
-        final token = data['token'];
-        
-        // Estrae il nome in modo sicuro dall'oggetto 'user' di Laravel
-        String userName = 'Utente';
-        if (data['user'] != null && data['user']['name'] != null) {
-          userName = data['user']['name'].toString();
-        }
+    setState(() => _isLoading = false);
+    _mostraSnackBar(result['message']);
 
-        // Salva il token e il nome dell'utente sul dispositivo
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', token.toString());
-        await prefs.setString('user_name', userName);
-
-        _mostraSnackBar(data['message'] ?? 'Login effettuato con successo!');
-
-        // Passa istantaneamente alla Home
-        authNotifier.value = true;
-
-      } else {
-        final messaggioErrore = data['message'] ?? 'Credenziali non valide';
-        _mostraSnackBar(messaggioErrore);
-      }
-    } catch (e) {
-      _mostraSnackBar('Errore di connessione al server: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    if (result['success']) {
+      // Passa istantaneamente alla Home
+      authNotifier.value = true;
     }
   }
 

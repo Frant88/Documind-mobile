@@ -1,10 +1,7 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'widgets/app_drawer.dart';
+import '../../../shared/widgets/app_drawer.dart';
+import '../data/qr_scanner_service.dart';
 
 class QrScannerPage extends StatefulWidget {
   const QrScannerPage({super.key});
@@ -14,6 +11,7 @@ class QrScannerPage extends StatefulWidget {
 }
 
 class _QrScannerPageState extends State<QrScannerPage> {
+  final QrScannerService _scannerService = QrScannerService();
   late final MobileScannerController _scannerController;
   bool _isProcessing = false;
 
@@ -41,82 +39,63 @@ class _QrScannerPageState extends State<QrScannerPage> {
       if (rawValue != null && rawValue.isNotEmpty) {
         setState(() => _isProcessing = true);
         await _scannerController.stop();
-        await _scaricaESalvaFileDaQr(rawValue);
+        await _elaboraCodiceQr(rawValue);
         break;
       }
     }
   }
 
-  Future<void> _scaricaESalvaFileDaQr(String urlCondivisione) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
+  Future<void> _elaboraCodiceQr(String urlCondivisione) async {
+    final result = await _scannerService.scaricaFileDaQr(urlCondivisione);
 
-    try {
-      final String endpoint = urlCondivisione
-          .replaceAll('127.0.0.1', '10.0.2.2')
-          .replaceAll('localhost', '10.0.2.2');
+    if (!mounted) return;
 
-      final response = await http.get(
-        Uri.parse(endpoint),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/json',
-        },
-      ).timeout(const Duration(seconds: 5));
-
-      if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final tempDir = await getTemporaryDirectory();
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final file = File('${tempDir.path}/documento_condiviso_$timestamp.pdf');
-        
-        await file.writeAsBytes(response.bodyBytes);
-
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF0F172A),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(color: const Color(0xFF38E54D).withOpacity(0.4)),
-            ),
-            title: const Text(
-              'DOCUMENTO SCARICATO',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF38E54D), fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            content: Text(
-              'Il file è stato salvato correttamente:\n${file.path}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace'),
-            ),
-            actions: [
-              Center(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF38E54D),
-                    foregroundColor: const Color(0xFF0F172A),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    setState(() => _isProcessing = false);
-                    _scannerController.start();
-                  },
-                  child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        );
-      } else {
-        _mostraErrore('Errore dal server: ${response.statusCode}');
-      }
-    } catch (e) {
-      _mostraErrore('Errore di connessione o timeout: $e');
+    if (result['success'] == true) {
+      _mostraDialogSuccesso(result['filePath']);
+    } else {
+      _mostraErrore(result['message'] ?? 'Errore sconosciuto');
     }
+  }
+
+  void _mostraDialogSuccesso(String filePath) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: const Color(0xFF38E54D).withOpacity(0.4)),
+        ),
+        title: const Text(
+          'DOCUMENTO SCARICATO',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFF38E54D), fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Il file è stato salvato correttamente:\n$filePath',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white70, fontSize: 12, fontFamily: 'monospace'),
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF38E54D),
+                foregroundColor: const Color(0xFF0F172A),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() => _isProcessing = false);
+                _scannerController.start();
+              },
+              child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _mostraErrore(String messaggio) {
