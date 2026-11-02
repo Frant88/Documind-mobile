@@ -1,0 +1,73 @@
+# ==========================================
+# Miscellaneous & System Files
+# ==========================================
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+Thumbs.db
+captures/
+
+# ==========================================
+# IDE & Editor specific
+# ==========================================
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+
+# ==========================================
+# Flutter / Dart / Pub related
+# ==========================================
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+.widget_preview/
+
+# ==========================================
+# Android & iOS Build Artifacts / Dependencies
+# ==========================================
+/android/app/debug
+/android/app/profile
+/android/app/release
+android/.gradle/
+
+ios/Pods/
+ios/Carthage/
+ios/Flutter/Flutter.podspec
+ios/Flutter/App.framework
+ios/Flutter/App.methfiles
+ios/Flutter/ephemeral/
+
+# Executables & Packages
+*.apk
+*.aab
+*.ipa
+
+# ==========================================
+# Symbolication & Obfuscation
+# ==========================================
+app.*.symbols
+app.*.map.json
+
+# ==========================================
+# Local Keys & Certificates (Security)
+# ==========================================
+*.jks
+*.keystore
+key.properties
