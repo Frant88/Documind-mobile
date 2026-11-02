@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
-import '../document_chat_service.dart'; // Assicurati che il percorso del service sia corretto
+import '../../features/documents/data/document_chat_service.dart';
 
 class DocumentChatWidget extends StatefulWidget {
   final int documentId;
-  final String baseUrl;
-  final String token;
 
   const DocumentChatWidget({
     Key? key,
     required this.documentId,
-    required this.baseUrl,
-    required this.token,
   }) : super(key: key);
 
   @override
@@ -30,10 +26,8 @@ class _DocumentChatWidgetState extends State<DocumentChatWidget> {
   @override
   void initState() {
     super.initState();
-    _chatService = DocumentChatService(
-      baseUrl: widget.baseUrl,
-      token: widget.token,
-    );
+    // Istanziazione pulita: il service gestisce autonomamente token e ApiConstants
+    _chatService = DocumentChatService();
     _loadHistory();
   }
 
@@ -47,7 +41,6 @@ class _DocumentChatWidgetState extends State<DocumentChatWidget> {
       _scrollToBottom();
     } catch (e) {
       setState(() => isLoadingHistory = false);
-      // Se vuoi un feedback a schermo in caso di errore di rete
     }
   }
 
@@ -57,10 +50,9 @@ class _DocumentChatWidgetState extends State<DocumentChatWidget> {
 
     _textController.clear();
 
-    // Aggiungiamo subito il messaggio dell'utente per reattività grafica immediata
     setState(() {
       messages.add({'role': 'user', 'content': text});
-      isSending = true; // Attiva i tre puntini di caricamento dell'IA
+      isSending = true;
     });
     _scrollToBottom();
 
@@ -70,10 +62,10 @@ class _DocumentChatWidgetState extends State<DocumentChatWidget> {
         messages.add({'role': 'model', 'content': aiReply});
       });
     } catch (e) {
-      // Gestione dell'errore di invio (es. messaggio di sistema o snackbar)
+      // Gestione dell'errore di invio
     } finally {
       setState(() {
-        isSending = false; // Disattiva i tre puntini in ogni caso
+        isSending = false;
       });
       _scrollToBottom();
     }
@@ -95,7 +87,6 @@ class _DocumentChatWidgetState extends State<DocumentChatWidget> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Area della cronologia dei messaggi
         Expanded(
           child: isLoadingHistory
               ? const Center(child: CircularProgressIndicator())
@@ -111,7 +102,6 @@ class _DocumentChatWidgetState extends State<DocumentChatWidget> {
                       padding: const EdgeInsets.all(16),
                       itemCount: messages.length + (isSending ? 1 : 0),
                       itemBuilder: (context, index) {
-                        // Se siamo all'ultimo elemento e l'IA sta rispondendo, mostriamo i tre puntini
                         if (index == messages.length && isSending) {
                           return Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -162,8 +152,6 @@ class _DocumentChatWidgetState extends State<DocumentChatWidget> {
                       },
                     ),
         ),
-
-        // Barra di input in basso
         Container(
           padding: const EdgeInsets.all(8),
           color: Colors.white,

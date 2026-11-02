@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../features/qr_scanner/presentation/qr_scanner_page.dart';
+import '../../features/auth/presentation/profile_page.dart'; 
 
 class AppDrawer extends StatelessWidget {
-  final String currentPage; // Identifica la pagina corrente: 'home', 'qr_scanner', etc.
+  final String currentPage; // Identifica la pagina corrente: 'home', 'qr_scanner', 'profile', etc.
 
   const AppDrawer({super.key, required this.currentPage});
 
@@ -77,6 +78,26 @@ class AppDrawer extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const QrScannerPage(),
+                  ),
+                );
+              }
+            },
+          ),
+
+          // --- VOCE: PROFILO ---
+          _buildMenuItem(
+            context: context,
+            icon: Icons.person_outline,
+            activeIcon: Icons.person,
+            title: 'Profilo',
+            isActive: currentPage == 'profile',
+            onTap: () {
+              Navigator.pop(context); // Chiude il drawer
+              if (currentPage != 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
                   ),
                 );
               }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'login_page.dart';
-import 'home_page.dart';
+import 'features/auth/presentation/login_page.dart';
+import 'features/documents/presentation/home_page.dart';
 
 // Variabile globale per monitorare lo stato di autenticazione
 ValueNotifier<bool> authNotifier = ValueNotifier<bool>(false);

@@ -14,7 +14,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final DocumentService _documentService = DocumentService();
-  
+
   String _nomeUtente = 'Utente';
   List<dynamic> _documenti = [];
   bool _isLoadingDocs = true;
@@ -231,18 +231,6 @@ class _HomePageState extends State<HomePage> {
                         ),
             ),
           ],
-        ),
-        floatingActionButton: FloatingActionButton.extended(
-          backgroundColor: const Color(0xFF38E54D),
-          foregroundColor: const Color(0xFF0F172A),
-          elevation: 6,
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Upload file in arrivo...')),
-            );
-          },
-          icon: const Icon(Icons.cloud_upload_outlined),
-          label: const Text('CARICA FILE', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.8)),
         ),
       ),
     );

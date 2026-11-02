@@ -295,8 +295,6 @@ class _DocumentDetailPageState extends State<DocumentDetailPage> {
                     ? const Center(child: CircularProgressIndicator(color: Color(0xFF38E54D)))
                     : DocumentChatWidget(
                         documentId: docId,
-                        baseUrl: ApiConstants.baseUrl,
-                        token: _authToken!,
                       ),
               ),
             ),

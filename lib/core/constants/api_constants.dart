@@ -16,4 +16,10 @@ class ApiConstants {
   // --- Rotte Chat IA per singolo documento ---
   static String documentChatHistory(int id) => '$baseUrl/documents/$id/chat/history';
   static String documentChatSend(int id) => '$baseUrl/documents/$id/chat';
+
+  // Rotta per il caricamento documenti
+  static const String documentUpload = '$baseUrl/documents/upload';
+
+  // ---  ENDPOINT PROFILO ---
+  static const String userProfile = '$baseUrl/user/profile';
 }
